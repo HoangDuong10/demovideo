@@ -32,32 +32,63 @@ fun LooBackContainerScreen(
     val context = LocalContext.current
     val videoUrls by viewModel.videoUrls.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
-    
+
     val playerManager = remember { VideoPlayerManager(context) }
     val pagerState = rememberPagerState(
         initialPage = 0,
         pageCount = { videoUrls.size }
     )
-    
-    // Theo dõi thay đổi trang
+
+    // Preload video đầu tiên khi khởi tạo
+    LaunchedEffect(videoUrls) {
+        if (videoUrls.isNotEmpty()) {
+            playerManager.preloadAround(0, videoUrls)
+        }
+    }
+
+    // Theo dõi thay đổi trang và preload
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }
             .distinctUntilChanged()
             .collect { page ->
-                android.util.Log.d("ContainerScreen", "Current page: $page - ${playerManager.getPoolStats()}")
+                android.util.Log.d("ContainerScreen", "Page: $page - ${playerManager.getPoolStats()}")
+
                 viewModel.updateCurrentIndex(page)
+
+                // Pause tất cả trừ page hiện tại
                 playerManager.pauseAllExcept(page)
-                
-                // Cleanup các player quá xa (giữ lại ±2 video xung quanh)
-                playerManager.cleanupDistantPlayers(page, keepRange = 2)
+
+                // Preload videos xung quanh (quan trọng!)
+                playerManager.preloadAround(page, videoUrls)
+
+                // Cleanup sau khi preload (keepRange = 3 để giữ đủ buffer)
+                playerManager.cleanupDistantPlayers(page, keepRange = 3)
             }
     }
-    
+
+    // Xử lý settling state để preload sớm hơn
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }
+            .distinctUntilChanged()
+            .collect { settledPage ->
+                // Khi user bắt đầu vuốt, preload luôn
+                if (settledPage != pagerState.currentPage) {
+                    playerManager.preloadAround(settledPage, videoUrls)
+                }
+            }
+    }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> {
-                    playerManager.pauseAllExcept(-1) // Pause tất cả
+                    playerManager.pauseAllExcept(-1)
+                }
+                Lifecycle.Event.ON_RESUME -> {
+                    // Resume video hiện tại nếu cần
+                    if (videoUrls.isNotEmpty()) {
+                        playerManager.preloadAround(pagerState.currentPage, videoUrls)
+                    }
                 }
                 else -> Unit
             }
@@ -68,11 +99,13 @@ fun LooBackContainerScreen(
             playerManager.releaseAllPlayers()
         }
     }
-    
+
     Box(Modifier.fillMaxSize()) {
         VerticalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            // Thêm beyondBoundsPageCount để Compose render sẵn pages xung quanh
+            // Render sẵn 1 page trước/sau
         ) { page ->
             VideoItem(
                 videoUrl = videoUrls[page],
@@ -81,136 +114,15 @@ fun LooBackContainerScreen(
                 playerManager = playerManager
             )
         }
-        
-        // Debug overlay - comment out nếu không cần
+
+        // Debug overlay
         DebugOverlay(
             currentIndex = pagerState.currentPage,
             totalVideos = videoUrls.size,
             poolStats = playerManager.getPoolStats(),
-            modifier = androidx.compose.ui.Modifier
-                .align(androidx.compose.ui.Alignment.TopEnd)
+            modifier = Modifier
+                .align(Alignment.TopEnd)
                 .padding(16.dp)
         )
-
-//        when (index) {
-//            0 -> {
-//                Screen1(
-//                    dataNavigation = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            1 -> {
-//                Screen2(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            2 -> {
-//                Screen3(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            3 -> {
-//                Screen4(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            4 -> {
-//                Screen5(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            5 -> {
-//                Screen6(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            6 -> {
-//                Screen7(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            7 -> {
-//                Screen9(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            8 -> {
-//                Screen8(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            9 -> {
-//                Screen10(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            10 -> {
-//                Screen11(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//
-//            11 -> {
-//                Screen12(
-//                    viewModel = viewModel,
-//                    data = data
-//                ) {
-//                    onBackPressed.invoke()
-//                }
-//            }
-//        }
-//        SlicedProgressBar(
-//            modifier = Modifier
-//                .height(40.dp)
-//                .padding(18.dp, 0.dp)
-//                .fillMaxWidth(),
-//            data.data?.gifLinks?.size ?: 0,
-//            (index + 1),
-//            progressConfig,
-//            durationProgressBar.toInt(), {
-//                viewModel.updateVideoView(true)
-//            }
-//        )
     }
 }
