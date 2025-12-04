@@ -62,33 +62,49 @@ class MainViewModel(
 
     private var isTapScreen = false
 
-//    fun updateVideoView(
-//        isNext: Boolean
-//    ) {
-//        val currentIndex = index.value
-//        if ((isNext && currentIndex == 11) || mListVideoUrl.isEmpty()) {
-//            return
-//        }
-//        if (isNext) {
-//            if (currentIndex.compareTo((mListVideoUrl.size - 1))) {
-//                _index.value = currentIndex + 1
-//            }
-//        } else {
-//            if (currentIndex compareTo 0) {
-//                _index.value = currentIndex - 1
-//            }
-//        }
-//        updateStatePlayer(LookBackConstants.INIT)
-//        updateShowAction(false)
-//        resumeVideo(false)
-//        _progressConfig.value = progressConfig.value.copy(
-//            action = LookBackConstants.RESET,
-//        )
-//        _videoConfig.value = videoConfig.value.copy(
-//            videoUrl = mListVideoUrl[index.value],
-//            time = timeDisplayText()
-//        )
-//    }
+    // Chuyển sang video tiếp theo hoặc video trước
+    fun updateVideoView(isNext: Boolean) {
+        val currentIndex = index.value
+        if (mListVideoUrl.isEmpty()) {
+            return
+        }
+        
+        if (isNext) {
+            // Vuốt lên -> video tiếp theo
+            if (currentIndex < mListVideoUrl.size - 1) {
+                _index.value = currentIndex + 1
+            } else {
+                // Đã ở video cuối, không làm gì
+                android.util.Log.d("MainViewModel", "Đã ở video cuối cùng")
+                return
+            }
+        } else {
+            // Vuốt xuống -> video trước
+            if (currentIndex > 0) {
+                _index.value = currentIndex - 1
+            } else {
+                // Đã ở video đầu, không làm gì
+                android.util.Log.d("MainViewModel", "Đã ở video đầu tiên")
+                return
+            }
+        }
+        
+        android.util.Log.d("MainViewModel", "Chuyển sang video index: ${_index.value}")
+        
+        // Reset trạng thái và load video mới
+        updateStatePlayer(LookBackConstants.INIT)
+        updateShowAction(false)
+        resumeVideo(false)
+        _progressConfig.value = progressConfig.value.copy(
+            action = LookBackConstants.RESET,
+        )
+        _videoConfig.value = videoConfig.value.copy(
+            videoUrl = mListVideoUrl[index.value],
+            time = timeDisplayText()
+        )
+        // Bắt đầu phát video mới
+        resumeVideo(true)
+    }
 
     @kotlin.OptIn(ExperimentalCoroutinesApi::class)
     fun setupPreloadView() {
@@ -228,6 +244,8 @@ class MainViewModel(
             videoUrl = mListVideoUrl[index.value],
             time = timeDisplayText()
         )
+        // Bắt đầu phát video ngay khi khởi tạo
+        _isVideoPlaying.value = true
     }
 
 }

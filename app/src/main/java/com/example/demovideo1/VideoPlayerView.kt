@@ -3,6 +3,7 @@ package com.example.demovideo1
 import android.content.Context
 import android.graphics.Color
 import android.net.Uri
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,20 +49,23 @@ fun VideoPlayerView(
         if (bufferedPercentage == 100 && !isFullyLoaded) {
             isFullyLoaded = true
             onVideoFullyLoaded()
+            Log.d("duonghx","aaaaaa")
         }
     }
     LaunchedEffect(videoConfig) {
         exoPlayer.apply {
             if (videoConfig.videoUrl.isNotEmpty()) {
-//                Log.d("VideoPlayerView", "videoUrl " + videoConfig.videoUrl)
+                android.util.Log.d("VideoPlayerView", "Loading video: ${videoConfig.videoUrl}")
                 isFullyLoaded = false
                 isGetCurrentPosition = true
                 isGetDuration = true
                 isEndVideo = false
-//                Log.d("VideoPlayerView", "isEndVideo331: " + isEndVideo)
+                stop()
+                clearMediaItems()
                 setMediaItem(androidx.media3.common.MediaItem.fromUri(Uri.parse(videoConfig.videoUrl)))
                 prepare()
-                exoPlayer.playWhenReady = true
+                playWhenReady = true
+                android.util.Log.d("VideoPlayerView", "Video prepared and ready to play")
             }
         }
         while (videoConfig.time != null && isGetCurrentPosition) {
@@ -135,8 +139,9 @@ fun VideoPlayerView(
             PlayerView(context).apply {
                 player = exoPlayer
                 useController = false
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
-                setShutterBackgroundColor(Color.TRANSPARENT)
+                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                setShutterBackgroundColor(Color.BLACK)
+                setKeepScreenOn(true)
             }
         },
         update = {

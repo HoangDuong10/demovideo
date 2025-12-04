@@ -6,9 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.demovideo1"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.demovideo1"
@@ -52,6 +50,8 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.ui)
+    implementation("androidx.media3:media3-datasource-okhttp:1.8.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

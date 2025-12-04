@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -26,17 +27,29 @@ fun LooBackContainerScreen(
     onBackPressed: () -> Unit
 ) {
     val context = LocalContext.current
-    val exoPlayer : ExoPlayer = ExoPlayer.Builder(context)
-        .setMediaSourceFactory(
-            DefaultMediaSourceFactory(
-                VideoCache.getDataSourceFactory(context)
+    val exoPlayer = remember {
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(
+                    VideoCache.getDataSourceFactory(context)
+                )
             )
-        )
-        .build()
+            .build().apply {
+                android.util.Log.d("ContainerScreen", "ExoPlayer created")
+            }
+    }
     val videoConfig by viewModel.videoConfig.collectAsStateWithLifecycle()
     val index by viewModel.index.collectAsStateWithLifecycle()
     val isPlayingVideo by viewModel.isVideoPlaying.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
+    
+    DisposableEffect(exoPlayer) {
+        onDispose {
+            android.util.Log.d("ContainerScreen", "Releasing ExoPlayer")
+            exoPlayer.release()
+        }
+    }
+    
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -61,38 +74,35 @@ fun LooBackContainerScreen(
         Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                val maxWidth = this.size.width
-                detectTapGestures(
-                    onPress = {
-//                        viewModel.updateTapAction(true)
-//                        viewModel.resumeVideo(false)
-//                        val pressStartTime = System.currentTimeMillis()
-//                        this.tryAwaitRelease()
-//                        viewModel.updateTapAction(false)
-//                        viewModel.resumeVideo(true)
-//                        val pressEndTime = System.currentTimeMillis()
-//                        val totalPressTime = pressEndTime - pressStartTime
-//                        if (totalPressTime < 200) {
-//                            val isTapOnRightThreeQuarters = (it.x > (maxWidth / 4))
-//                            viewModel.updateVideoView(isTapOnRightThreeQuarters)
-//                        }
-                    }
-                )
-            }
-            .pointerInput(Unit) {
-                detectDragGestures { change, dragAmount ->
-                    change.consume()
-                    val (x, y) = dragAmount
-
-                    when {
-                        y > 0 -> {
-                            if (y > 90 && x > -10 && x < 10) {
-                                onBackPressed.invoke()
+                var totalDragY = 0f
+                val swipeThreshold = 100f // Ngưỡng vuốt tối thiểu (pixels)
+                
+                detectDragGestures(
+                    onDragStart = {
+                        totalDragY = 0f
+                    },
+                    onDragEnd = {
+                        // Khi kết thúc vuốt, kiểm tra hướng và khoảng cách
+                        when {
+                            totalDragY < -swipeThreshold -> {
+                                // Vuốt lên -> video tiếp theo
+                                android.util.Log.d("ContainerScreen", "Vuốt lên - Video tiếp theo")
+                                viewModel.updateVideoView(true)
+                            }
+                            totalDragY > swipeThreshold -> {
+                                // Vuốt xuống -> video trước
+                                android.util.Log.d("ContainerScreen", "Vuốt xuống - Video trước")
+                                viewModel.updateVideoView(false)
                             }
                         }
-
-                        y < 0 -> {}
+                        totalDragY = 0f
+                    },
+                    onDragCancel = {
+                        totalDragY = 0f
                     }
+                ) { change, dragAmount ->
+                    change.consume()
+                    totalDragY += dragAmount.y
                 }
             }
     ) {
