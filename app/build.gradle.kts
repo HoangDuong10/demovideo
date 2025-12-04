@@ -52,6 +52,7 @@ dependencies {
     implementation(libs.androidx.media3.ui)
     implementation("androidx.media3:media3-datasource-okhttp:1.8.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
+    implementation("androidx.compose.foundation:foundation:1.7.5")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

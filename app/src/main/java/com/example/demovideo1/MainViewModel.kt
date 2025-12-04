@@ -32,7 +32,11 @@ class MainViewModel(
     private val context: Context
 ) : ViewModel() {
 
-    private var mListVideoUrl: List<String> = mutableListOf()
+    private val _videoUrls = MutableStateFlow<List<String>>(emptyList())
+    val videoUrls = _videoUrls.asStateFlow()
+
+    private val _currentIndex = MutableStateFlow(0)
+    val currentIndex = _currentIndex.asStateFlow()
 
     private val _isVideoPlaying = MutableStateFlow(false)
     val isVideoPlaying = _isVideoPlaying.asStateFlow()
@@ -62,79 +66,42 @@ class MainViewModel(
 
     private var isTapScreen = false
 
-    // Chuyển sang video tiếp theo hoặc video trước
+    fun updateCurrentIndex(index: Int) {
+        _currentIndex.value = index
+        _index.value = index
+        android.util.Log.d("MainViewModel", "Updated index to: $index")
+    }
+    
+    // Chuyển sang video tiếp theo hoặc video trước (giữ lại cho tương thích)
     fun updateVideoView(isNext: Boolean) {
-        val currentIndex = index.value
-        if (mListVideoUrl.isEmpty()) {
+        val currentIdx = _currentIndex.value
+        if (_videoUrls.value.isEmpty()) {
             return
         }
         
         if (isNext) {
-            // Vuốt lên -> video tiếp theo
-            if (currentIndex < mListVideoUrl.size - 1) {
-                _index.value = currentIndex + 1
-            } else {
-                // Đã ở video cuối, không làm gì
-                android.util.Log.d("MainViewModel", "Đã ở video cuối cùng")
-                return
+            if (currentIdx < _videoUrls.value.size - 1) {
+                _currentIndex.value = currentIdx + 1
             }
         } else {
-            // Vuốt xuống -> video trước
-            if (currentIndex > 0) {
-                _index.value = currentIndex - 1
-            } else {
-                // Đã ở video đầu, không làm gì
-                android.util.Log.d("MainViewModel", "Đã ở video đầu tiên")
-                return
+            if (currentIdx > 0) {
+                _currentIndex.value = currentIdx - 1
             }
         }
-        
-        android.util.Log.d("MainViewModel", "Chuyển sang video index: ${_index.value}")
-        
-        // Reset trạng thái và load video mới
-        updateStatePlayer(LookBackConstants.INIT)
-        updateShowAction(false)
-        resumeVideo(false)
-        _progressConfig.value = progressConfig.value.copy(
-            action = LookBackConstants.RESET,
-        )
-        _videoConfig.value = videoConfig.value.copy(
-            videoUrl = mListVideoUrl[index.value],
-            time = timeDisplayText()
-        )
-        // Bắt đầu phát video mới
-        resumeVideo(true)
     }
 
     @kotlin.OptIn(ExperimentalCoroutinesApi::class)
     fun setupPreloadView() {
-        val indexPreload = when (
-            index.value
-        ) {
-            0 -> {
-                3
-            }
-
-            3 -> {
-                6
-            }
-
-            5 -> {
-                9
-            }
-
-            7 -> {
-                9
-            }
-
-            else -> {
-                0
-            }
-        }
-        if (indexPreload != 0) {
+        val currentIdx = _currentIndex.value
+        val urls = _videoUrls.value
+        
+        // Preload 2 video tiếp theo
+        val startIndex = currentIdx + 1
+        if (startIndex < urls.size) {
             preloadVideos(
-                indexPreload,
-                videoUrls = mListVideoUrl
+                startIndex,
+                size = 2,
+                videoUrls = urls
             )
         }
     }
@@ -233,19 +200,18 @@ class MainViewModel(
         isTapScreen = isTap
     }
 
-    fun initData(
-        listUrl: List<String>
-    ) {
-        mListVideoUrl = listUrl
+    fun initData(listUrl: List<String>) {
+        _videoUrls.value = listUrl
+        _currentIndex.value = 0
         _progressConfig.value = progressConfig.value.copy(
             action = LookBackConstants.RESET,
         )
         _videoConfig.value = videoConfig.value.copy(
-            videoUrl = mListVideoUrl[index.value],
+            videoUrl = if (listUrl.isNotEmpty()) listUrl[0] else "",
             time = timeDisplayText()
         )
-        // Bắt đầu phát video ngay khi khởi tạo
         _isVideoPlaying.value = true
+        android.util.Log.d("MainViewModel", "Initialized with ${listUrl.size} videos")
     }
 
 }
