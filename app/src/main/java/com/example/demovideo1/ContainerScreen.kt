@@ -3,8 +3,10 @@ package com.example.demovideo1
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -14,6 +16,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,9 +44,12 @@ fun LooBackContainerScreen(
         snapshotFlow { pagerState.currentPage }
             .distinctUntilChanged()
             .collect { page ->
-                android.util.Log.d("ContainerScreen", "Current page: $page")
+                android.util.Log.d("ContainerScreen", "Current page: $page - ${playerManager.getPoolStats()}")
                 viewModel.updateCurrentIndex(page)
                 playerManager.pauseAllExcept(page)
+                
+                // Cleanup các player quá xa (giữ lại ±2 video xung quanh)
+                playerManager.cleanupDistantPlayers(page, keepRange = 2)
             }
     }
     
@@ -75,6 +81,16 @@ fun LooBackContainerScreen(
                 playerManager = playerManager
             )
         }
+        
+        // Debug overlay - comment out nếu không cần
+        DebugOverlay(
+            currentIndex = pagerState.currentPage,
+            totalVideos = videoUrls.size,
+            poolStats = playerManager.getPoolStats(),
+            modifier = androidx.compose.ui.Modifier
+                .align(androidx.compose.ui.Alignment.TopEnd)
+                .padding(16.dp)
+        )
 
 //        when (index) {
 //            0 -> {
